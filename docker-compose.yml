@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: redis:8.0.3-alpine
+    ports:
+      - "6380:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: 0.3
+          memory: "150MB"
+    networks:
+      - caique_backend
+networks:
+  caique_backend:
+    driver: bridge
