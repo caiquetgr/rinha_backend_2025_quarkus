@@ -3,13 +3,62 @@ services:
     image: redis:8.0.3-alpine
     ports:
       - "6380:6379"
+    command: >
+      redis-server
+      --maxmemory 120mb
+      --save ""
+      --appendonly no
+      --tcp-keepalive 60
+      --hz 20
+      --maxclients 15000
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     deploy:
       resources:
         limits:
           cpus: 0.3
           memory: "150MB"
     networks:
-      - caique_backend
+      - backend-rinha
+  api1: &api
+    image: caiquetgr/rinha-backend-2025:latest
+    hostname: api1
+    environment:
+      - PAYMENT_WORKERS_SIZE=6
+      - REDIS_HOST=redis://redis:6379
+      - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
+      - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-rinha
+      - payment-processor
+  api2:
+    <<: *api
+    hostname: api2
+  nginx:
+    image: nginx:1.27.0-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "9999:9999"
+    networks:
+      - payment-processor
+      - backend-rinha
+    depends_on:
+      - api1
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: "15MB"
 networks:
-  caique_backend:
+  backend-rinha:
     driver: bridge
+  payment-processor:
+    external: true

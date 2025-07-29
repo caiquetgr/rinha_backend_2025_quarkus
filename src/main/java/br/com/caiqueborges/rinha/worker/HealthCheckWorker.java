@@ -30,7 +30,6 @@ public class HealthCheckWorker {
 
         worker = healthCheckService.acquireLock()
                 .onFailure().recoverWithItem(false)
-                .onItem().invoke((lock) -> System.out.println("Conseguiu lock? " + lock))
                 .onItem().call(acquiredLock -> acquiredLock ? healthCheckService.updateHealthCheck() : Uni.createFrom().voidItem())
                 .onFailure().invoke(() -> System.out.println("Falha ao atualizar health-check"))
                 .onFailure().recoverWithNull()

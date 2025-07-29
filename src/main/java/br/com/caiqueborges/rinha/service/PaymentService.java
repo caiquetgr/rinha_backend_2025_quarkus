@@ -122,12 +122,14 @@ public class PaymentService {
                 .apply(PaymentRequest.fromPayment(payment))
                 .onItem().transformToUni(response -> {
                     if ((response.getStatus() >= 200 && response.getStatus() < 300) || response.getStatus() == 422) {
-                        System.out.println("Aceito!");
                         return Uni.createFrom().item(Tuple2.of(processorName, payment));
                     } else {
-                        return Uni.createFrom().failure(() -> new InternalServerErrorException("Falha ao enviar pagamento"));
+                        return Uni.createFrom().failure(() -> new InternalServerErrorException("Falha ao enviar pagamento: " + response.getStatus()));
                     }
                 });
     }
 
+    public Uni<Void> purgePayments() {
+        return paymentRedisRepository.purgePayments();
+    }
 }

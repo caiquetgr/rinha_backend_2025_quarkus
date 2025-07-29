@@ -81,4 +81,8 @@ public class PaymentRedisRepository {
                 .replaceWith(payment);
     }
 
+    public Uni<Void> purgePayments() {
+        return redis.execute("DEL", PAYMENTS_BY_DATE).replaceWithVoid();
+    }
+
 }

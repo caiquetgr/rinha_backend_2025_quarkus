@@ -7,28 +7,32 @@ import io.smallrye.mutiny.subscription.Cancellable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Startup
 @ApplicationScoped
 public class PaymentWorker {
 
-    private static final int NUM_WORKERS = 5;
 
     private final PaymentRedisRepository paymentRedisRepository;
     private final PaymentService paymentService;
-    private final Cancellable[] workers = new Cancellable[NUM_WORKERS];
+    private final Cancellable[] workers;
+    private final int numWorkers;
 
     public PaymentWorker(
             final PaymentRedisRepository paymentRedisRepository,
-            final PaymentService paymentService) {
+            final PaymentService paymentService,
+            @ConfigProperty(name = "payment-workers.size") final int numWorkers) {
         this.paymentRedisRepository = paymentRedisRepository;
         this.paymentService = paymentService;
+        this.numWorkers = numWorkers;
+        this.workers = new Cancellable[numWorkers];
     }
 
     @PostConstruct
     void startWorkers() {
         System.out.println("Starting workers");
-        for (int i = 0; i < NUM_WORKERS; i++) {
+        for (int i = 0; i < numWorkers; i++) {
             System.out.println("Starting worker " + i);
             this.workers[i] = pollLoop(i);
         }
@@ -47,7 +51,6 @@ public class PaymentWorker {
 
     private Cancellable pollLoop(int workerId) {
         return paymentRedisRepository.dequeuePayment()
-                .onItem().invoke((p) -> System.out.println("Worker " + workerId + "Processando pagamento " + p.value()))
                 .onItem().ifNotNull().call(kv -> paymentService.processPayment(kv.value()))
                 .onFailure().recoverWithNull()
                 .repeat().indefinitely()

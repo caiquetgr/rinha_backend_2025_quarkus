@@ -44,7 +44,13 @@ public class PaymentResource {
         return paymentService.getPaymentSummary(from, to);
     }
 
-    @Path("/test-cache")
+    @Path("/purge-payments")
+    @POST
+    public Uni<Void> purgePayments() {
+        return paymentService.purgePayments();
+    }
+
+    @Path("/health-check-cache")
     @GET
     public Uni<ProcessorsHealthCheck> getCache() {
         return healthCheckService.getHealthCheckCache();
