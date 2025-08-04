@@ -2,15 +2,15 @@ services:
   redis:
     image: redis:8.0.3-alpine
     ports:
-      - "6380:6379"
+      - "6379:6379"
     command: >
       redis-server
-      --maxmemory 120mb
+      --maxmemory 100mb
       --save ""
       --appendonly no
       --tcp-keepalive 60
       --hz 20
-      --maxclients 15000
+      --maxclients 1000
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -20,21 +20,26 @@ services:
     deploy:
       resources:
         limits:
-          cpus: 0.3
-          memory: "150MB"
+          cpus:  "0.3"
+          memory: "111MB"
     networks:
       - backend-rinha
   api1: &api
     image: caiquetgr/rinha-backend-2025:latest
     hostname: api1
     environment:
-      - PAYMENT_WORKERS_SIZE=6
+      - PAYMENT_WORKERS_SIZE=4
       - REDIS_HOST=redis://redis:6379
       - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
       - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080
     depends_on:
       redis:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "112MB"
     networks:
       - backend-rinha
       - payment-processor
@@ -52,6 +57,8 @@ services:
       - backend-rinha
     depends_on:
       - api1
+      - api2
+      - redis
     deploy:
       resources:
         limits:

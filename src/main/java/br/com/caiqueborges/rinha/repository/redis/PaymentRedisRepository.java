@@ -2,6 +2,7 @@ package br.com.caiqueborges.rinha.repository.redis;
 
 import br.com.caiqueborges.rinha.entity.Payment;
 import br.com.caiqueborges.rinha.entity.ProcessorsHealthCheck;
+import br.com.caiqueborges.rinha.repository.processors.dto.PaymentRequest;
 import br.com.caiqueborges.rinha.repository.redis.dbo.PaymentDBO;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.list.KeyValue;
@@ -11,12 +12,15 @@ import io.quarkus.redis.datasource.sortedset.ScoreRange;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple2;
+import io.vertx.mutiny.redis.client.Response;
 import io.vertx.redis.client.Command;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @ApplicationScoped
 public class PaymentRedisRepository {
@@ -29,24 +33,30 @@ public class PaymentRedisRepository {
     private static final String PAYMENTS_BY_DATE = "payments_by_date";
 
     private final ReactiveRedisDataSource redis;
-    private final ReactiveListCommands<String, Payment> redisPaymentList;
+    private final ReactiveListCommands<String, String> redisPaymentList;
     private final ReactiveValueCommands<String, ProcessorsHealthCheck> processorHealthCheckRedisValue;
     private final ReactiveSortedSetCommands<String, PaymentDBO> paymentSortedSet;
 
     public PaymentRedisRepository(ReactiveRedisDataSource redis) {
         this.redis = redis;
-        this.redisPaymentList = redis.list(String.class, Payment.class);
+        this.redisPaymentList = redis.list(String.class, String.class);
         this.processorHealthCheckRedisValue = redis.value(ProcessorsHealthCheck.class);
         this.paymentSortedSet = redis.sortedSet(PaymentDBO.class);
     }
 
-    public Uni<Long> enqueuePayment(Payment payment) {
-        // TODO: validar otimizar enviando apenas string, sem serializar o payment
-        return redisPaymentList.lpush(QUEUE_NAME, payment);
+    public Uni<Response> enqueuePayment(Payment payment) {
+        String paymentData = payment.getCorrelationId() + ":" + payment.getAmount();
+        return redis.execute(Command.LPUSH, QUEUE_NAME, paymentData);
     }
 
-    public Uni<KeyValue<String, Payment>> dequeuePayment() {
-        return redisPaymentList.brpop(Duration.ofSeconds(1), QUEUE_NAME);
+    public Uni<Payment> dequeuePayment() {
+        return redisPaymentList.brpop(Duration.ofSeconds(1), QUEUE_NAME)
+                .onItem().ifNotNull().transform(kv -> {
+                    String[] parts = kv.value().split(":");
+                    UUID correlationId = UUID.fromString(parts[0]);
+                    BigDecimal amount = new BigDecimal(parts[1]);
+                    return new Payment(correlationId, amount);
+                });
     }
 
     public Uni<List<PaymentDBO>> getPayments(long from, long to) {
@@ -71,13 +81,13 @@ public class PaymentRedisRepository {
         return processorHealthCheckRedisValue.get(HEALTH_CHECK_KEY);
     }
 
-    public Uni<Payment> savePayment(final Tuple2<String, Payment> tuple) {
-        final Payment payment = tuple.getItem2();
+    public Uni<PaymentRequest> savePayment(final Tuple2<String, PaymentRequest> tuple) {
+        final PaymentRequest payment = tuple.getItem2();
         final String processorName = tuple.getItem1();
-        final PaymentDBO paymentDBO = new PaymentDBO(payment.getCorrelationId(), payment.getAmount(), processorName);
+        final PaymentDBO paymentDBO = new PaymentDBO(payment.correlationId(), payment.amount(), processorName);
 
         return paymentSortedSet
-                .zadd(PAYMENTS_BY_DATE, payment.getRequestedAt(), paymentDBO)
+                .zadd(PAYMENTS_BY_DATE, payment.requestedAtMillis(), paymentDBO)
                 .replaceWith(payment);
     }
 

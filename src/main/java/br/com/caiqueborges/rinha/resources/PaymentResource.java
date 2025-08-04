@@ -14,12 +14,14 @@ import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.Status;
 
+import java.time.Instant;
+
 @Path("/")
 public class PaymentResource {
 
     private final PaymentService paymentService;
     private final HealthCheckService healthCheckService;
-
+    
     @Inject
     public PaymentResource(PaymentService paymentService, HealthCheckService healthCheckService) {
         this.paymentService = paymentService;
@@ -31,7 +33,6 @@ public class PaymentResource {
     public Uni<RestResponse> receivePayment(final Payment payment) {
         return Uni.createFrom()
                 .item(payment)
-                .invoke(Payment::updateRequestedAt)
                 .flatMap(paymentService::enqueuePayment)
                 .replaceWith(RestResponse.status(Status.ACCEPTED));
     }

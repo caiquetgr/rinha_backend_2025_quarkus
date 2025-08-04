@@ -51,7 +51,7 @@ public class PaymentWorker {
 
     private Cancellable pollLoop(int workerId) {
         return paymentRedisRepository.dequeuePayment()
-                .onItem().ifNotNull().call(kv -> paymentService.processPayment(kv.value()))
+                .onItem().ifNotNull().call(payment -> paymentService.processPayment(payment))
                 .onFailure().recoverWithNull()
                 .repeat().indefinitely()
                 .subscribe()

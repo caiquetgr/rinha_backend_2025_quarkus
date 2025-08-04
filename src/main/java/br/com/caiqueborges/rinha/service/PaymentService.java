@@ -114,15 +114,17 @@ public class PaymentService {
         return DEFAULT;
     }
 
-    private Uni<Tuple2<String, Payment>> sendPaymentToProcessor(String processorName, Payment payment) {
+    private Uni<Tuple2<String, PaymentRequest>> sendPaymentToProcessor(String processorName, Payment payment) {
         Function<PaymentRequest, Uni<RestResponse<Void>>> processor =
                 DEFAULT.equals(processorName) ? paymentProcessorDefault::processPayment : paymentProcessorFallback::processPayment;
 
+        PaymentRequest paymentRequest = PaymentRequest.fromPayment(payment);
+
         return processor
-                .apply(PaymentRequest.fromPayment(payment))
+                .apply(paymentRequest)
                 .onItem().transformToUni(response -> {
                     if ((response.getStatus() >= 200 && response.getStatus() < 300) || response.getStatus() == 422) {
-                        return Uni.createFrom().item(Tuple2.of(processorName, payment));
+                        return Uni.createFrom().item(Tuple2.of(processorName, paymentRequest));
                     } else {
                         return Uni.createFrom().failure(() -> new InternalServerErrorException("Falha ao enviar pagamento: " + response.getStatus()));
                     }
