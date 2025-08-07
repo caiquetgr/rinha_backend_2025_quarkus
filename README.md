@@ -1,91 +1,165 @@
 # rinha-backend-2025
 
-This project is a backend application built using Quarkus, a supersonic, subatomic Java framework designed for building cloud-native applications.
+Este projeto foi feito para participar da [Rinha de Backend 2025](https://github.com/zanfranceschi/rinha-de-backend-2025) e a minha idéia foi principalmente praticar os frameworks e estilo de programação:
+ 
+- **Java 21** 
+- **[Quarkus](https://quarkus.io/)** (Framework Java completo e acredito que o mais famoso depois do Spring. Primeira vez que utilizei, a dev experience é muito boa e quis aproveitar a compilação nativa que é uma de suas principais features para tentar ter uma boa performance e aplicação leve)
+- **[Mutiny](https://smallrye.io/smallrye-mutiny/latest/)** (Biblioteca para programação reativa integrada com o Quarkus. Para praticar programação reativa, que estudei há muito tempo mas nunca coloquei em prática, e claro, aproveitar das threads não bloqueantes para tentar uma performance melhor)
+- **[Redis](https://redis.io/)** (Sempre utilizei como cache, mas nunca como fila e lock, oportunidade boa)
 
-## Project Overview
+## Arquitetura
 
-- **Group ID:** br.com.caiqueborges
-- **Artifact ID:** rinha-backend-2025
-- **Version:** 1.0.0-SNAPSHOT
-- **Java Version:** 21
+Sobre a arquitetura, inicialmente pensei em utilizar junto com um Postgres para persistir os pagamentos, mas decidi procurar sobre as possibilidades de manter absolutamente tudo no Redis para economizar CPU e RAM na arquitetura, e cheguei ao seguinte:
 
-## Features
+```mermaid
+flowchart LR
+    NGINX[NGINX<br>Load Balancer]
+    API1[API Backend 1<br>REST API]
+    API2[API Backend 2<br>REST API]
+    REDIS[(Redis)]
+    DEFAULT[API Default<br>Payment Processor]
+    FALLBACK[API Fallback<br>Payment Processor]
 
-- RESTful API development with Quarkus RESTEasy Reactive
-- JSON serialization and deserialization with Jackson
-- Dependency injection with Arc
-- Redis client integration
-- REST client support
-- Caching support
+    NGINX --> API1
+    NGINX --> API2
+    API1 --> REDIS
+    API2 --> REDIS
+    API1 --> DEFAULT
+    API1 --> FALLBACK
+    API2 --> DEFAULT
+    API2 --> FALLBACK
+```
 
-## Prerequisites
+## Diagramas de sequência
 
-- Java 21 or higher
-- Maven 3.6.3 or higher
-- Docker (optional, for containerization)
+Quero explicar aqui os três fluxos principais da aplicação (fora o endpoint de payments-summary). Os workers são Unis (fluxo de um item do Mutiny) que executa ele mesmo recursivamente quando o processamento de um item é finalizado.
 
-## Running the Application
+### Endpoint de pagamento
 
-### In Development Mode
+```mermaid
+sequenceDiagram
+    box backend
+        actor Client
+        participant API
+        participant Redis
 
-You can run the application in development mode with live reload support:
+    end
+            
+    Client->>API: POST /payments
+    API->>Redis: Adiciona mensagem na fila
+    Redis->>API: OK
+    API->>Client: HTTP Status 202 Accepted
+```
+
+### Worker para verificar a saúde dos payment processors
+
+```mermaid
+sequenceDiagram
+    box backend
+        participant API
+        participant Redis
+    end
+
+    box payment-processor
+        participant Default
+        participant Fallback
+    end
+            
+    API->>API: Executa worker
+    API->>Redis: Tenta adquirir lock
+    alt Não adquiriu lock?
+        API ->> API: Encerra fluxo
+    else
+        par Chamadas health-check em paralelo
+            API ->> Default: GET /payments/service-health
+            Default ->> API: Ok
+        and Health-check fallback
+            API ->> Fallback: GET /payments/service-health
+            Fallback ->> API: Ok
+        end
+        API ->> Redis: Guarda informações de health-check    
+        Redis->>API: OK
+    end
+
+```
+
+- Worker para processar os pagamentos
+
+```mermaid
+sequenceDiagram
+    box backend
+        participant API
+        participant Redis
+    end
+
+    box payment-processor
+        participant Default
+        participant Fallback
+    end
+
+    API->>API: Executa worker
+    API->>Redis: Lê pagamento da fila
+    Redis->>API: 
+
+    API->>API: Consulta healthcheck dos processors em memória
+    alt Healthcheck em memória expirou
+    API->>Redis: Buscar healthcheck
+    Redis->>API:
+    API->>API: Guarda healthcheck em memória
+    end
+
+    API->>API: Define qual processor utilizar
+    Note right of API: Regra de decisão <br>de qual processor<br> utilizar no PaymentService<br>método<br>decideProcessorToSendPayment
+    
+    alt processor = DEFAULT?
+    API->>Default: Processar pagamento
+    Default->>API: Resposta
+    else 
+    API->>Fallback: Processar pagamento
+    Default->>API: Resposta
+    end
+
+    alt Resposta >= 200 and Resposta <=300 or Resposta == 422
+    API->>Redis: Guardar pagamento em SortedSet
+    else
+    API->>Redis: Colocar pagamento de volta na fila
+    end
+```
+
+## Pré-requisitos
+
+- Java 21
+- Maven 3.6.3 ou maior
+- Docker
+
+## Executando a Aplicação
+
+### Em Modo de Desenvolvimento
+
+Você pode executar a aplicação em modo de desenvolvimento:
 
 ```bash
 ./mvnw quarkus:dev
 ```
 
-This will start the application on `http://localhost:8080` and enable hot deployment.
+### Docker
 
-### Packaging the Application
-
-To package the application into a runnable JAR file:
+Pode rodar a aplicação via Docker Compose
 
 ```bash
-./mvnw package
+docker-compose up -d
 ```
 
-The packaged application will be located in the `target/` directory.
+### Compilar nativo
 
-### Running the Packaged Application
-
-Run the packaged JAR with:
+Para compilar esta aplicação em um binário nativo, usar o comando:
 
 ```bash
-java -jar target/rinha-backend-2025-1.0.0-SNAPSHOT.jar
+./mvnw clean package -Dnative
 ```
 
-### Building an Uber-JAR
-
-To build an uber-jar (fat jar) that includes all dependencies:
+Com isso, serão baixadas as imagens Docker necessárias para compilar o projeto Quarkus nativamente e a compilação será iniciada. Ao final do processo, será gerado um arquivo binário dentro da pasta target, que pode ser rodado: rinha-backend-2025-1.0.0-SNAPSHOT-runner
 
 ```bash
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+./target/rinha-backend-2025-1.0.0-SNAPSHOT-runner
 ```
-
-## Docker
-
-A `docker-compose.yml` file is included for containerized deployment.
-
-## Testing
-
-The project includes JUnit 5 and Rest Assured for testing.
-
-Run tests with:
-
-```bash
-./mvnw test
-```
-
-## Further Reading
-
-- [Quarkus Official Website](https://quarkus.io/)
-- [Quarkus RESTEasy Reactive](https://quarkus.io/guides/rest-json)
-- [Quarkus Redis Client](https://quarkus.io/guides/redis)
-
-## License
-
-Specify your project license here.
-
----
-
-This README was generated based on the project configuration in the `pom.xml` file.

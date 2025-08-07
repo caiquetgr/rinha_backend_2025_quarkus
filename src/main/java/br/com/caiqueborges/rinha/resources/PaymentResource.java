@@ -14,8 +14,6 @@ import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.Status;
 
-import java.time.Instant;
-
 @Path("/")
 public class PaymentResource {
 
