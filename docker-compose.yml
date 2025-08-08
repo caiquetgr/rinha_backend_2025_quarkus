@@ -25,10 +25,10 @@ services:
     networks:
       - backend-rinha
   api1: &api
-    image: caiquetgr/rinha-backend-2025:latest
+    image: caiqueborges/rinha-backend-2025:latest
     hostname: api1
     environment:
-      - PAYMENT_WORKERS_SIZE=4
+      - PAYMENT_WORKERS_SIZE=10
       - REDIS_HOST=redis://redis:6379
       - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
       - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080

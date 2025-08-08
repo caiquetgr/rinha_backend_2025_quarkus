@@ -163,3 +163,6 @@ Com isso, serão baixadas as imagens Docker necessárias para compilar o projeto
 ```bash
 ./target/rinha-backend-2025-1.0.0-SNAPSHOT-runner
 ```
+
+### Link do repositório
+[Caique Borges - Rinha Backend 2025 Quarkus](https://github.com/caiquetgr/rinha_backend_2025_quarkus)
