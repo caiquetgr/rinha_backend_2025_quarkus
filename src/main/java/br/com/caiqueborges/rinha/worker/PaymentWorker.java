@@ -17,20 +17,28 @@ public class PaymentWorker {
     private final PaymentRedisRepository paymentRedisRepository;
     private final PaymentService paymentService;
     private final Cancellable[] workers;
+    private final String serviceMode;
     private final int numWorkers;
 
     public PaymentWorker(
             final PaymentRedisRepository paymentRedisRepository,
             final PaymentService paymentService,
-            @ConfigProperty(name = "payment-workers.size") final int numWorkers) {
+            @ConfigProperty(name = "payment-workers.size") final int numWorkers,
+            @ConfigProperty(name = "service.mode") final String serviceMode) {
         this.paymentRedisRepository = paymentRedisRepository;
         this.paymentService = paymentService;
         this.numWorkers = numWorkers;
         this.workers = new Cancellable[numWorkers];
+        this.serviceMode = serviceMode;
     }
 
     @PostConstruct
     void startWorkers() {
+        if (!"worker".equals(serviceMode)) {
+            System.out.println("No payment workers needed");
+            return;
+        }
+
         System.out.println("Starting workers");
         for (int i = 0; i < numWorkers; i++) {
             System.out.println("Starting worker " + i);

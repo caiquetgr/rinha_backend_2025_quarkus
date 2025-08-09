@@ -44,9 +44,14 @@ public class PaymentRedisRepository {
         this.paymentSortedSet = redis.sortedSet(PaymentDBO.class);
     }
 
-    public Uni<Response> enqueuePayment(Payment payment) {
+    public Uni<?> enqueuePayment(Payment payment) {
         String paymentData = payment.getCorrelationId() + ":" + payment.getAmount();
-        return redis.execute(Command.LPUSH, QUEUE_NAME, paymentData);
+        return redis.execute(Command.LPUSH, QUEUE_NAME, paymentData)
+                .ifNoItem().after(Duration.ofSeconds(2)).fail()
+                .onFailure().retry()
+                .withBackOff(Duration.ofMillis(100), Duration.ofSeconds(2))
+                .withJitter(0.3)
+                .atMost(5);
     }
 
     public Uni<Payment> dequeuePayment() {
@@ -59,8 +64,8 @@ public class PaymentRedisRepository {
                 });
     }
 
-    public Uni<List<PaymentDBO>> getPayments(long from, long to) {
-        return paymentSortedSet.zrangebyscore(PAYMENTS_BY_DATE, ScoreRange.from(from, to));
+    public Uni<List<PaymentDBO>> getPayments(Long from, Long to) {
+        return paymentSortedSet.zrangebyscore(PAYMENTS_BY_DATE, new ScoreRange(from, to));
     }
 
     // Se execute retornar nulo, não conseguiu adquirir o lock (criar uma chave-valor com expiração)

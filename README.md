@@ -16,18 +16,21 @@ flowchart LR
     NGINX[NGINX<br>Load Balancer]
     API1[API Backend 1<br>REST API]
     API2[API Backend 2<br>REST API]
+    WORKER1[Worker Backend 1<br>Consumidor]
     REDIS[(Redis)]
     DEFAULT[API Default<br>Payment Processor]
     FALLBACK[API Fallback<br>Payment Processor]
 
     NGINX --> API1
     NGINX --> API2
-    API1 --> REDIS
-    API2 --> REDIS
-    API1 --> DEFAULT
-    API1 --> FALLBACK
-    API2 --> DEFAULT
-    API2 --> FALLBACK
+    API1 -->|enfileira| REDIS
+    API2 -->|enfileira| REDIS
+    WORKER1 -->|consome| REDIS
+    WORKER1 -->|envia| DEFAULT
+    WORKER1 -->|envia| FALLBACK
+    WORKER1 -->|envia| DEFAULT
+    WORKER1 -->|envia| FALLBACK
+
 ```
 
 ## Diagramas de sequência

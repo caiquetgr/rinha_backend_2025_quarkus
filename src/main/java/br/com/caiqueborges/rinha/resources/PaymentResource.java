@@ -6,20 +6,20 @@ import br.com.caiqueborges.rinha.entity.ProcessorsHealthCheck;
 import br.com.caiqueborges.rinha.service.HealthCheckService;
 import br.com.caiqueborges.rinha.service.PaymentService;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.Status;
 
 @Path("/")
 public class PaymentResource {
 
     private final PaymentService paymentService;
     private final HealthCheckService healthCheckService;
-    
+
     @Inject
     public PaymentResource(PaymentService paymentService, HealthCheckService healthCheckService) {
         this.paymentService = paymentService;
@@ -28,11 +28,16 @@ public class PaymentResource {
 
     @Path("/payments")
     @POST
-    public Uni<RestResponse> receivePayment(final Payment payment) {
-        return Uni.createFrom()
-                .item(payment)
-                .flatMap(paymentService::enqueuePayment)
-                .replaceWith(RestResponse.status(Status.ACCEPTED));
+    public Uni<Response> receivePayment(final Payment payment) {
+        paymentService.enqueuePayment(payment)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .subscribe()
+                .with(
+                        result -> {},
+                        failure -> System.err.println("Erro ao enfileirar pagamento: " + payment)
+                );
+
+        return Uni.createFrom().item(Response.accepted().build());
     }
 
     @Path("/payments-summary")

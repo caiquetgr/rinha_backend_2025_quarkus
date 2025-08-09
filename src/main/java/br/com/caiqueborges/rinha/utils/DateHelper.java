@@ -3,6 +3,7 @@ package br.com.caiqueborges.rinha.utils;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 public final class DateHelper {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter
@@ -15,7 +16,10 @@ public final class DateHelper {
         return FORMATTER.format(Instant.ofEpochMilli(epochMillis));
     }
 
-    public static long parseIsoUtcToEpochMillis(String isoUtcString) {
+    public static Long parseIsoUtcToEpochMillis(String isoUtcString) {
+        if (Objects.isNull(isoUtcString) || isoUtcString.isBlank()) {
+            return null;
+        }
         return Instant.from(FORMATTER.parse(isoUtcString)).toEpochMilli();
     }
 }

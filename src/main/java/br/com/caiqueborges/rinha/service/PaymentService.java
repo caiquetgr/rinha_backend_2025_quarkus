@@ -52,8 +52,10 @@ public class PaymentService {
     }
 
     public Uni<PaymentsSummary> getPaymentSummary(String from, String to) {
-        long fromMilli = DateHelper.parseIsoUtcToEpochMillis(from);
-        long toMilli = DateHelper.parseIsoUtcToEpochMillis(to);
+        Long fromMilli = DateHelper.parseIsoUtcToEpochMillis(from);
+        Long toMilli = DateHelper.parseIsoUtcToEpochMillis(to);
+        System.out.println("From " + fromMilli);
+        System.out.println("To " + toMilli);
 
         return paymentRedisRepository.getPayments(fromMilli, toMilli)
                 .onItem()
