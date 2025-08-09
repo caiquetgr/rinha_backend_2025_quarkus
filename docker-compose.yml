@@ -21,7 +21,7 @@ services:
       resources:
         limits:
           cpus:  "0.3"
-          memory: "50MB"
+          memory: "45MB"
     networks:
       - backend-rinha
   api1: &api
@@ -39,7 +39,7 @@ services:
       resources:
         limits:
           cpus: "0.3"
-          memory: "100MB"
+          memory: "95MB"
     networks:
       - backend-rinha
       - payment-processor

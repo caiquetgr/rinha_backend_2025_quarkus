@@ -9,7 +9,7 @@ Este projeto foi feito para participar da [Rinha de Backend 2025](https://github
 
 ## Arquitetura
 
-Sobre a arquitetura, inicialmente pensei em utilizar junto com um Postgres para persistir os pagamentos, mas decidi procurar sobre as possibilidades de manter absolutamente tudo no Redis para economizar CPU e RAM na arquitetura, e cheguei ao seguinte:
+Sobre a arquitetura, inicialmente pensei em utilizar junto com um Postgres para persistir os pagamentos, mas decidi procurar sobre as possibilidades de manter absolutamente tudo no Redis para economizar CPU e RAM na arquitetura após ver outros participantes comentando sobre, e cheguei ao seguinte:
 
 ```mermaid
 flowchart LR
