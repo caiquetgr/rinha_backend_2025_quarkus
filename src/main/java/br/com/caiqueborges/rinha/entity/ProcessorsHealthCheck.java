@@ -17,6 +17,14 @@ public record ProcessorsHealthCheck(
         return !defaultFailing() && (defaultMinResponseTime() <= fallbackMinResponseTime());
     }
 
+    public boolean isDefaultOnline() {
+        return !defaultFailing();
+    }
+
+    public boolean isFallbackOnline() {
+        return !fallbackFailing();
+    }
+
     @JsonIgnore
     public boolean areBothFailing() {
         return defaultFailing && fallbackFailing;

@@ -97,15 +97,11 @@ public class PaymentService {
     // Define qual processor deve ser usado baseado em saúde do serviço e tempo de resposta mínimo,
     // e retorna o método do processor a ser chamado
     private @Nullable String decideProcessorToSendPayment(ProcessorsHealthCheck healthCheck) {
-        if (healthCheck.isDefaultOnlineAndFaster()) {
+        if (healthCheck.isDefaultOnline()) {
             return DEFAULT;
         }
 
-        if (healthCheck.isDefaultFailingButFallbackNotFailing()) {
-            return FALLBACK;
-        }
-
-        if (healthCheck.isFallbackAtLeast300msFaster()) {
+        if (healthCheck.isFallbackOnline()) {
             return FALLBACK;
         }
 
